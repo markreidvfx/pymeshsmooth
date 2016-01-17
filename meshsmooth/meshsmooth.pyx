@@ -165,7 +165,7 @@ cdef class TopologyRefiner(object):
                 refine_uniform(self.refiner, level)
 
         mesh = self.setup_dst_mesh(level, mesh)
-        print mesh
+
         cdef SubdiveDesc desc
         self.setup_subdiv_descriptor(level, desc, mesh)
 

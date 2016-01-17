@@ -125,7 +125,7 @@ void subdivide_uniform(Far::TopologyRefiner *refiner, SubdiveDesc &desc)
 		src_fvars[i] = src_fvar_desc.values;
 		dst_fvars[i] = &tmp_fvars[i][0];
 	}
-	std::cerr << vertex_element_size << "\n";
+
 	OpenSubdiv::Far::PrimvarRefiner primvarRefiner(*refiner);
 	for (int level = 1; level <= maxlevel; ++level) {
 
