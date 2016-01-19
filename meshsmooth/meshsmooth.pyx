@@ -27,6 +27,9 @@ cdef extern from "core.h" nogil:
 cdef class Channel(object):
     cdef public float[:,:] values
 
+    def __cinit__(self):
+        self.values = None
+
 cdef class VarChannel(Channel):
     def __init__(self, str name, float[:,:] values not None):
         self.values = values
@@ -34,6 +37,10 @@ cdef class VarChannel(Channel):
 cdef class FVarChannel(Channel):
     cdef public int[:] indices
     cdef int channel_id
+
+    def __cinit__(self):
+        self.indices = None
+
     def __init__(self, str name,
                        int[:] indices not None,
                        float[:,:] values not None):
@@ -58,6 +65,9 @@ cdef class Mesh(object):
     cdef public list vchannels
     cdef public list fvchannels
 
+    def __cinit__(self):
+        self.face_counts = None
+
     def __init__(self, int[:] face_counts not None,
                        FVarChannel vertex_channel not None,
                            channels):
@@ -78,7 +88,7 @@ cdef class TopologyRefiner(object):
     cdef opensubdiv.TopologyRefiner *refiner
     cdef opensubdiv.TopologyDescriptor desc
     cdef vector[opensubdiv.TopologyDescriptor.FVarChannel] fvar_descriptors
-    cdef Mesh mesh
+    cdef public Mesh mesh
 
     def __cinit__(self):
         self.refiner = NULL
@@ -110,32 +120,60 @@ cdef class TopologyRefiner(object):
             self.refiner = create_refiner(self.desc)
 
     cdef setup_dst_mesh(self, int level, Mesh mesh=None):
+        """
+        setups a mesh, attempts to reuse one if provided
+        """
         cdef FVarChannel dst_fvchan
         cdef FVarChannel src_fvchan
 
         if not mesh:
             mesh = Mesh.__new__(Mesh)
+            mesh.face_counts = None
+            mesh.vertices = None
 
         vert_count = self.refiner.GetLevel(level).GetNumVertices()
         face_count = self.refiner.GetLevel(level).GetNumFaces()
         indice_count = self.refiner.GetLevel(level).GetNumFaceVertices()
 
-        mesh.face_counts = view.array(shape=(face_count, ), itemsize=sizeof(int), format="i")
+        if mesh.face_counts is None or mesh.face_counts.shape[0] != face_count:
+            mesh.face_counts = view.array(shape=(face_count, ), itemsize=sizeof(int), format="i")
 
-        mesh.vertices =  FVarChannel.__new__(FVarChannel)
-        mesh.vertices.indices = view.array(shape=(indice_count, ), itemsize=sizeof(int), format="i")
+        if mesh.vertices is None:
+            mesh.vertices =  FVarChannel.__new__(FVarChannel)
+
+        if mesh.vertices.indices is None or mesh.vertices.indices.shape[0] != indice_count:
+            mesh.vertices.indices = view.array(shape=(indice_count, ), itemsize=sizeof(int), format="i")
+
         vertex_element_size = self.mesh.vertices.values.shape[1]
-        mesh.vertices.values = view.array(shape=(vert_count, vertex_element_size), itemsize=sizeof(float), format="f")
-        mesh.fvchannels = []
+
+        if mesh.vertices.values is None or mesh.vertices.values.shape != (vert_count, vertex_element_size):
+            mesh.vertices.values = view.array(shape=(vert_count, vertex_element_size), itemsize=sizeof(float), format="f")
+
+        has_channels = True
+        if mesh.fvchannels is None:
+            mesh.fvchannels = []
+            has_channels = False
 
         for i, src_fvchan in enumerate(self.mesh.fvchannels):
-            dst_fvchan =  FVarChannel.__new__(FVarChannel)
+
+            if has_channels and len(mesh.fvchannels) > i:
+                dst_fvchan = mesh.fvchannels[i]
+            else:
+                dst_fvchan =  FVarChannel.__new__(FVarChannel)
+
             dst_fvchan.channel_id = src_fvchan.channel_id
-            dst_fvchan.indices = view.array(shape=(indice_count, ), itemsize=sizeof(int), format="i")
+
+            if dst_fvchan.indices is None or dst_fvchan.indices.shape[0] != indice_count:
+                dst_fvchan.indices = view.array(shape=(indice_count, ), itemsize=sizeof(int), format="i")
+
             elements = src_fvchan.values.shape[1]
             size = self.refiner.GetLevel(level).GetNumFVarValues(i)
-            dst_fvchan.values = view.array(shape=(size, elements), itemsize=sizeof(float), format="f")
-            mesh.fvchannels.append(dst_fvchan)
+
+            if dst_fvchan.values is None or dst_fvchan.values.shape != (size, elements):
+                dst_fvchan.values = view.array(shape=(size, elements), itemsize=sizeof(float), format="f")
+
+            if not (has_channels and len(mesh.fvchannels) > i):
+                mesh.fvchannels.append(dst_fvchan)
 
         return mesh
 
@@ -158,7 +196,7 @@ cdef class TopologyRefiner(object):
             desc.src_fvar[i] = src_fvchan.get_description()
             desc.dst_fvar[i] = dst_fvchan.get_description()
 
-    def refine_uniform(self, int level, Mesh mesh = None):
+    def refine_uniform(self, int level, Mesh mesh = None, generate_indices = True):
 
         if level != self.refiner.GetMaxLevel():
             with nogil:
@@ -171,7 +209,9 @@ cdef class TopologyRefiner(object):
 
         with nogil:
             subdivide_uniform(self.refiner, desc)
-            populate_indices(self.refiner, desc)
 
+        if generate_indices:
+            with nogil:
+                populate_indices(self.refiner, desc)
         return mesh
 
