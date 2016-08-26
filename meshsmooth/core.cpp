@@ -35,13 +35,15 @@ struct Vertex4D {
 };
 
 
-Far::TopologyRefiner * create_refiner(Descriptor &desc)
+Far::TopologyRefiner * create_refiner(Descriptor &desc,
+                                      Sdc::Options::VtxBoundaryInterpolation VtxBoundaryInterpolation,
+                                      Sdc::Options::FVarLinearInterpolation FVarLinearInterpolation)
 {
     OpenSubdiv::Sdc::SchemeType type = OpenSubdiv::Sdc::SCHEME_CATMARK;
     OpenSubdiv::Sdc::Options options;
-    options.SetVtxBoundaryInterpolation(OpenSubdiv::Sdc::Options::VTX_BOUNDARY_EDGE_ONLY);
+    options.SetVtxBoundaryInterpolation(VtxBoundaryInterpolation);
     //options.SetFVarLinearInterpolation(Sdc::Options::FVAR_LINEAR_CORNERS_PLUS2);
-    options.SetFVarLinearInterpolation(Sdc::Options::FVAR_LINEAR_BOUNDARIES);
+    options.SetFVarLinearInterpolation(FVarLinearInterpolation);
 
     return Far::TopologyRefinerFactory<Descriptor>::Create(desc,
                     Far::TopologyRefinerFactory<Descriptor>::Options(type,options));

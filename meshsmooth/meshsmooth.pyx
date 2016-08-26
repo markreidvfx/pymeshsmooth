@@ -3,6 +3,20 @@ from cython cimport view
 
 cimport opensubdiv
 
+cdef extern from "core.h" namespace "OpenSubdiv::Sdc::Options" nogil:
+    cdef enum VtxBoundaryInterpolation:
+        VTX_BOUNDARY_NONE
+        VTX_BOUNDARY_EDGE_ONLY
+        VTX_BOUNDARY_EDGE_AND_CORNER
+
+    cdef enum FVarLinearInterpolation:
+        FVAR_LINEAR_NONE
+        FVAR_LINEAR_CORNERS_ONLY
+        FVAR_LINEAR_CORNERS_PLUS1
+        FVAR_LINEAR_CORNERS_PLUS2
+        FVAR_LINEAR_BOUNDARIES
+        FVAR_LINEAR_ALL
+
 cdef extern from "core.h" nogil:
     cdef struct FVarData:
         int *indices
@@ -14,15 +28,31 @@ cdef extern from "core.h" nogil:
     cdef struct SubdiveDesc:
         int level
         int *dst_face_counts
-        FVarData src_vertices;
+        FVarData src_vertices
         FVarData dst_vertices;
         vector[FVarData] src_fvar
         vector[FVarData] dst_fvar
 
-    cdef opensubdiv.TopologyRefiner* create_refiner(opensubdiv.TopologyDescriptor &desc) except+
+    cdef opensubdiv.TopologyRefiner* create_refiner(opensubdiv.TopologyDescriptor &desc, VtxBoundaryInterpolation, FVarLinearInterpolation) except+
     cdef void refine_uniform(opensubdiv.TopologyRefiner* refiner, int level) except+
     cdef void populate_indices(opensubdiv.TopologyRefiner *refiner, SubdiveDesc &desc) except+
     cdef void subdivide_uniform(opensubdiv.TopologyRefiner *refiner, SubdiveDesc &desc) except+
+
+cdef dict Vtx_Boundary_Interpolation = {
+"NONE":            VTX_BOUNDARY_NONE,
+"EDGE_ONLY":       VTX_BOUNDARY_EDGE_ONLY,
+"EDGE_AND_CORNER": VTX_BOUNDARY_EDGE_AND_CORNER,
+}
+
+cdef dict F_Var_Linear_Interpolation = {
+"LINEAR_NONE":          FVAR_LINEAR_NONE,
+"LINEAR_CORNERS_ONLY":  FVAR_LINEAR_CORNERS_ONLY,
+"LINEAR_CORNERS_PLUS1": FVAR_LINEAR_CORNERS_PLUS1,
+"LINEAR_CORNERS_PLUS2": FVAR_LINEAR_CORNERS_PLUS2,
+"LINEAR_BOUNDARIES":    FVAR_LINEAR_BOUNDARIES,
+"LINEAR_ALL":           FVAR_LINEAR_ALL,
+}
+
 
 cdef class Channel(object):
     cdef public float[:,:] values
@@ -96,7 +126,7 @@ cdef class TopologyRefiner(object):
         if self.refiner:
             del self.refiner
 
-    def __init__(self, Mesh mesh not None):
+    def __init__(self, Mesh mesh not None, BoundaryInterpolation=None, FVarInterpolation=None):
 
         cdef FVarChannel fvchan
 
@@ -116,8 +146,17 @@ cdef class TopologyRefiner(object):
 
         self.desc.numFVarChannels = self.fvar_descriptors.size()
         self.desc.fvarChannels = &self.fvar_descriptors[0]
+
+        cdef VtxBoundaryInterpolation boundry_interp = VTX_BOUNDARY_EDGE_ONLY
+        cdef FVarLinearInterpolation fvar_interp= FVAR_LINEAR_BOUNDARIES
+        if BoundaryInterpolation:
+            boundry_interp = Vtx_Boundary_Interpolation[BoundaryInterpolation.upper()]
+
+        if FVarInterpolation:
+            fvar_interp = F_Var_Linear_Interpolation[FVarInterpolation.upper()]
+
         with nogil:
-            self.refiner = create_refiner(self.desc)
+            self.refiner = create_refiner(self.desc, boundry_interp, fvar_interp)
 
     cdef setup_dst_mesh(self, int level, Mesh mesh=None):
         """
@@ -214,4 +253,3 @@ cdef class TopologyRefiner(object):
             with nogil:
                 populate_indices(self.refiner, desc)
         return mesh
-

@@ -24,8 +24,9 @@ struct SubdiveDesc
     std::vector<FVarData> dst_fvar;
 };
 
-
-Far::TopologyRefiner * create_refiner(Descriptor &desc);
+Far::TopologyRefiner * create_refiner(Descriptor &desc,
+                                      Sdc::Options::VtxBoundaryInterpolation VtxBoundaryInterpolation,
+                                      Sdc::Options::FVarLinearInterpolation FVarLinearInterpolation);
 void refine_uniform(Far::TopologyRefiner *refiner, int level);
 void populate_indices(Far::TopologyRefiner *refiner, SubdiveDesc &desc);
 void subdivide_uniform(Far::TopologyRefiner *refiner, SubdiveDesc &desc);
