@@ -30,12 +30,14 @@ cdef extern from "core.h" nogil:
         int *dst_face_counts
         FVarData src_vertices
         FVarData dst_vertices;
+        unsigned char *coarse_levels;
         vector[FVarData] src_fvar
         vector[FVarData] dst_fvar
 
     cdef opensubdiv.TopologyRefiner* create_refiner(opensubdiv.TopologyDescriptor &desc, VtxBoundaryInterpolation, FVarLinearInterpolation) except+
     cdef void refine_uniform(opensubdiv.TopologyRefiner* refiner, int level) except+
     cdef void populate_indices(opensubdiv.TopologyRefiner *refiner, SubdiveDesc &desc) except+
+    cdef void populate_coarse_edge_levels(opensubdiv.TopologyRefiner *refiner, SubdiveDesc &desc) except+
     cdef void subdivide_uniform(opensubdiv.TopologyRefiner *refiner, SubdiveDesc &desc) except+
 
 cdef dict Vtx_Boundary_Interpolation = {
@@ -92,6 +94,7 @@ cdef class FVarChannel(Channel):
 cdef class Mesh(object):
     cdef public int[:] face_counts
     cdef public FVarChannel vertices
+    cdef public unsigned char[:] coarse_levels
     cdef public list vchannels
     cdef public list fvchannels
 
@@ -106,6 +109,7 @@ cdef class Mesh(object):
         self.vertices = vertex_channel
         self.vchannels = []
         self.fvchannels = []
+        self.coarse_levels = None
         for channel in channels:
             if isinstance(channel, FVarChannel):
                 self.fvchannels.append(channel)
@@ -169,6 +173,7 @@ cdef class TopologyRefiner(object):
             mesh = Mesh.__new__(Mesh)
             mesh.face_counts = None
             mesh.vertices = None
+            mesh.coarse_levels = None
 
         vert_count = self.refiner.GetLevel(level).GetNumVertices()
         face_count = self.refiner.GetLevel(level).GetNumFaces()
@@ -179,6 +184,9 @@ cdef class TopologyRefiner(object):
 
         if mesh.vertices is None:
             mesh.vertices =  FVarChannel.__new__(FVarChannel)
+
+        if mesh.coarse_levels is None or mesh.coarse_levels.shape[0] != vert_count:
+            mesh.coarse_levels = view.array(shape=(vert_count, ), itemsize=sizeof(unsigned char), format="B")
 
         if mesh.vertices.indices is None or mesh.vertices.indices.shape[0] != indice_count:
             mesh.vertices.indices = view.array(shape=(indice_count, ), itemsize=sizeof(int), format="i")
@@ -228,6 +236,7 @@ cdef class TopologyRefiner(object):
         desc.dst_face_counts = &dst_mesh.face_counts[0]
         desc.dst_vertices = dst_mesh.vertices.get_description()
         desc.src_vertices = self.mesh.vertices.get_description()
+        desc.coarse_levels = &dst_mesh.coarse_levels[0]
 
         for i in range(channel_count):
             src_fvchan = self.mesh.fvchannels[i]
@@ -252,4 +261,5 @@ cdef class TopologyRefiner(object):
         if generate_indices:
             with nogil:
                 populate_indices(self.refiner, desc)
+                populate_coarse_edge_levels(self.refiner, desc)
         return mesh

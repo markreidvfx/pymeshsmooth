@@ -3,6 +3,7 @@ cdef extern from "opensubdiv/far/topologyDescriptor.h" namespace "OpenSubdiv::Fa
         int GetNumVertices()
         int GetNumFaces()
         int GetNumFaceVertices()
+        int GetNumEdges()
         int GetNumFVarValues(int channel)
 
     cdef cppclass TopologyRefiner:

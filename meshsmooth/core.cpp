@@ -57,6 +57,43 @@ void refine_uniform(Far::TopologyRefiner *refiner, int level)
 
 }
 
+void walk_child_edges(Far::Index edge_index,
+                      Far::TopologyRefiner *refiner,
+                      uint8_t * result,
+                      int current_level,
+                      int final_level)
+{
+    Far::TopologyLevel const &level = refiner->GetLevel(current_level);
+
+    if (current_level == final_level) {
+        Far::ConstIndexArray vert_indices = level.GetEdgeVertices(edge_index);
+        for (int i = 0; i < vert_indices.size(); i++) {
+            result[vert_indices[i]] = 0;
+        }
+        return;
+    }
+
+    Far::ConstIndexArray edges = level.GetEdgeChildEdges(edge_index);
+
+    for (int i = 0; i < edges.size(); i++) {
+        walk_child_edges(edges[i], refiner, result, current_level+1, final_level);
+    }
+
+}
+
+void populate_coarse_edge_levels(Far::TopologyRefiner *refiner, SubdiveDesc &desc)
+{
+    int final_level = desc.level;
+    uint8_t *result = desc.coarse_levels;
+
+    memset(result, final_level, refiner->GetLevel(final_level).GetNumVertices());
+    Far::TopologyLevel const &first_level = refiner->GetLevel(0);
+
+    for (int e = 0; e < first_level.GetNumEdges(); e++) {
+        walk_child_edges(e, refiner, result, 0, final_level);
+    }
+}
+
 void populate_indices(Far::TopologyRefiner *refiner, SubdiveDesc &desc)
 {
 	int level = desc.level;
@@ -176,4 +213,5 @@ void subdivide_uniform(Far::TopologyRefiner *refiner, SubdiveDesc &desc)
 		}
 
 	}
+
 }

@@ -20,6 +20,7 @@ struct SubdiveDesc
     int *dst_face_counts;
     FVarData src_vertices;
     FVarData dst_vertices;
+    uint8_t * coarse_levels;
     std::vector<FVarData> src_fvar;
     std::vector<FVarData> dst_fvar;
 };
@@ -29,4 +30,5 @@ Far::TopologyRefiner * create_refiner(Descriptor &desc,
                                       Sdc::Options::FVarLinearInterpolation FVarLinearInterpolation);
 void refine_uniform(Far::TopologyRefiner *refiner, int level);
 void populate_indices(Far::TopologyRefiner *refiner, SubdiveDesc &desc);
+void populate_coarse_edge_levels(Far::TopologyRefiner *refiner, SubdiveDesc &desc);
 void subdivide_uniform(Far::TopologyRefiner *refiner, SubdiveDesc &desc);
