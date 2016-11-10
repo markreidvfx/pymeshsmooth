@@ -1,6 +1,6 @@
 #include <opensubdiv/far/topologyDescriptor.h>
 #include <opensubdiv/far/primvarRefiner.h>
-
+#include "stdint.h"
 #include <vector>
 
 using namespace OpenSubdiv;
