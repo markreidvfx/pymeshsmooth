@@ -193,7 +193,7 @@ cdef class TopologyRefiner(object):
 
         vertex_element_size = self.mesh.vertices.values.shape[1]
 
-        if mesh.vertices.values is None or mesh.vertices.values.shape != (vert_count, vertex_element_size):
+        if mesh.vertices.values is None or mesh.vertices.values.shape[0] != vert_count or mesh.vertices.values.shape[1] != vertex_element_size:
             mesh.vertices.values = view.array(shape=(vert_count, vertex_element_size), itemsize=sizeof(float), format="f")
 
         has_channels = True
@@ -216,7 +216,7 @@ cdef class TopologyRefiner(object):
             elements = src_fvchan.values.shape[1]
             size = self.refiner.GetLevel(level).GetNumFVarValues(i)
 
-            if dst_fvchan.values is None or dst_fvchan.values.shape != (size, elements):
+            if dst_fvchan.values is None or dst_fvchan.values.shape[0] != size or  dst_fvchan.values.shape[1] != elements:
                 dst_fvchan.values = view.array(shape=(size, elements), itemsize=sizeof(float), format="f")
 
             if not (has_channels and len(mesh.fvchannels) > i):
