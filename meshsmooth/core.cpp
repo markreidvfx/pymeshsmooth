@@ -155,7 +155,7 @@ void subdivide_uniform(Far::TopologyRefiner *refiner, SubdiveDesc &desc)
 		int coarse_size = src_fvar_desc.value_shape[0];
 		int fine_size = dst_fvar_desc.value_shape[0];
 		int total_size = refiner->GetNumFVarValuesTotal(channel);
-		int temp_size = total_size - coarse_size - fine_size;
+		int temp_size = total_size;// - coarse_size - fine_size;
 
 		int element_size = src_fvar_desc.value_shape[1];
 
